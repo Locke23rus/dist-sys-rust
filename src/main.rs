@@ -11,7 +11,7 @@ enum MessageBody {
         node_ids: Vec<String>,
     },
     #[serde(rename = "init_ok")]
-    InitOk { in_reply_to: u64 },
+    InitOk { msg_id: u64, in_reply_to: u64 },
     #[serde(rename = "echo")]
     Echo { msg_id: u64, echo: String },
     #[serde(rename = "echo_ok")]
@@ -32,7 +32,6 @@ enum MessageBody {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Message {
-    id: u64,
     body: MessageBody,
     src: String,
     dest: String,
@@ -50,52 +49,43 @@ fn main() -> Result<(), serde_json::Error> {
     }
 }
 
-fn handle_message(next_message_id: u64, message: Message) -> Result<(), serde_json::Error> {
-    match message.body {
+fn handle_message(next_message_id: u64, request_message: Message) -> Result<(), serde_json::Error> {
+    let response_body: MessageBody = match request_message.body {
         MessageBody::Init {
-            msg_id,
+            msg_id: in_reply_to,
             node_id: _,
             node_ids: _,
-        } => {
-            let reply = Message {
-                id: next_message_id,
-                body: MessageBody::InitOk {
-                    in_reply_to: msg_id,
-                },
-                src: message.dest,
-                dest: message.src,
-            };
-            println!("{}", serde_json::to_string(&reply)?);
-        }
-        MessageBody::Echo { msg_id, echo } => {
-            let reply = Message {
-                id: next_message_id,
-                body: MessageBody::EchoOk {
-                    in_reply_to: msg_id,
-                    msg_id: next_message_id,
-                    echo,
-                },
-                src: message.dest,
-                dest: message.src,
-            };
-            println!("{}", serde_json::to_string(&reply)?);
-        }
-        MessageBody::Generate { msg_id } => {
-            let reply = Message {
-                id: next_message_id,
-                body: MessageBody::GenerateOk {
-                    in_reply_to: msg_id,
-                    msg_id: next_message_id,
-                    id: nanoid!(),
-                },
-                src: message.dest,
-                dest: message.src,
-            };
-            println!("{}", serde_json::to_string(&reply)?);
-        }
+        } => MessageBody::InitOk {
+            msg_id: next_message_id,
+            in_reply_to,
+        },
+        MessageBody::Echo {
+            msg_id: in_reply_to,
+            echo,
+        } => MessageBody::EchoOk {
+            msg_id: next_message_id,
+            in_reply_to,
+            echo,
+        },
+        MessageBody::Generate {
+            msg_id: in_reply_to,
+        } => MessageBody::GenerateOk {
+            msg_id: next_message_id,
+            in_reply_to,
+            id: nanoid!(),
+        },
         _ => {
             panic!("Unknown message type")
         }
-    }
+    };
+
+    let response_message = Message {
+        body: response_body,
+        src: request_message.dest,
+        dest: request_message.src,
+    };
+
+    println!("{}", serde_json::to_string(&response_message)?);
+
     Ok(())
 }
