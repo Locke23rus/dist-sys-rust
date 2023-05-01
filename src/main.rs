@@ -1,3 +1,4 @@
+use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -19,6 +20,14 @@ enum MessageBody {
         msg_id: u64,
         echo: String,
     },
+    #[serde(rename = "generate")]
+    Generate { msg_id: u64 },
+    #[serde(rename = "generate_ok")]
+    GenerateOk {
+        in_reply_to: u64,
+        msg_id: u64,
+        id: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -30,18 +39,18 @@ struct Message {
 }
 
 fn main() -> Result<(), serde_json::Error> {
-    let mut message_id = 0u64;
+    let mut next_message_id = 0u64;
     loop {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
 
         let message: Message = serde_json::from_str(input.as_str())?;
-        handle_message(message_id, message)?;
-        message_id += 1;
+        handle_message(next_message_id, message)?;
+        next_message_id += 1;
     }
 }
 
-fn handle_message(message_id: u64, message: Message) -> Result<(), serde_json::Error> {
+fn handle_message(next_message_id: u64, message: Message) -> Result<(), serde_json::Error> {
     match message.body {
         MessageBody::Init {
             msg_id,
@@ -49,7 +58,7 @@ fn handle_message(message_id: u64, message: Message) -> Result<(), serde_json::E
             node_ids: _,
         } => {
             let reply = Message {
-                id: message_id,
+                id: next_message_id,
                 body: MessageBody::InitOk {
                     in_reply_to: msg_id,
                 },
@@ -60,11 +69,24 @@ fn handle_message(message_id: u64, message: Message) -> Result<(), serde_json::E
         }
         MessageBody::Echo { msg_id, echo } => {
             let reply = Message {
-                id: 2,
+                id: next_message_id,
                 body: MessageBody::EchoOk {
                     in_reply_to: msg_id,
-                    msg_id: message_id,
+                    msg_id: next_message_id,
                     echo,
+                },
+                src: message.dest,
+                dest: message.src,
+            };
+            println!("{}", serde_json::to_string(&reply)?);
+        }
+        MessageBody::Generate { msg_id } => {
+            let reply = Message {
+                id: next_message_id,
+                body: MessageBody::GenerateOk {
+                    in_reply_to: msg_id,
+                    msg_id: next_message_id,
+                    id: nanoid!(),
                 },
                 src: message.dest,
                 dest: message.src,
