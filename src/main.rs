@@ -30,6 +30,12 @@ enum MessageBody {
         msg_id: u64,
         id: String,
     },
+    Error {
+        in_reply_to: u64,
+        msg_id: u64,
+        code: u64,
+        text: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
