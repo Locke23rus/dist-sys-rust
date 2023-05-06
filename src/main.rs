@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 
@@ -45,28 +47,46 @@ struct Message {
     dest: String,
 }
 
+#[derive(Clone, Debug)]
+struct State {
+    next_message_id: u64,
+    node_id: String,
+}
+
 fn main() -> Result<(), serde_json::Error> {
-    let mut next_message_id = 0u64;
+    let state = Arc::new(Mutex::new(State {
+        next_message_id: 0u64,
+        node_id: "".to_string(),
+    }));
     loop {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
 
         let message: Message = serde_json::from_str(input.as_str())?;
-        handle_message(next_message_id, message)?;
-        next_message_id += 1;
+        handle_message(state.clone(), message)?;
     }
 }
 
-fn handle_message(next_message_id: u64, request_message: Message) -> Result<(), serde_json::Error> {
+fn handle_message(
+    state: Arc<Mutex<State>>,
+    request_message: Message,
+) -> Result<(), serde_json::Error> {
+    let mut state = state.lock().unwrap();
+    let next_message_id = state.next_message_id;
+
     let response_body: MessageBody = match request_message.body {
         MessageBody::Init {
             msg_id: in_reply_to,
-            node_id: _,
+            node_id,
             node_ids: _,
-        } => MessageBody::InitOk {
-            msg_id: next_message_id,
-            in_reply_to,
-        },
+        } => {
+            state.node_id = node_id;
+
+            MessageBody::InitOk {
+                msg_id: next_message_id,
+                in_reply_to,
+            }
+        }
         MessageBody::Echo {
             msg_id: in_reply_to,
             echo,
@@ -92,8 +112,9 @@ fn handle_message(next_message_id: u64, request_message: Message) -> Result<(), 
         src: request_message.dest,
         dest: request_message.src,
     };
-
     println!("{}", serde_json::to_string(&response_message)?);
+
+    state.next_message_id += 1;
 
     Ok(())
 }
