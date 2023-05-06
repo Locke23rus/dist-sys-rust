@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
@@ -38,6 +41,30 @@ enum MessageBody {
         code: u64,
         text: String,
     },
+    Broadcast {
+        msg_id: u64,
+        message: u64,
+    },
+    BroadcastOk {
+        in_reply_to: u64,
+        msg_id: u64,
+    },
+    Read {
+        msg_id: u64,
+    },
+    ReadOk {
+        in_reply_to: u64,
+        msg_id: u64,
+        messages: Vec<u64>,
+    },
+    Topology {
+        msg_id: u64,
+        topology: HashMap<String, Vec<String>>,
+    },
+    TopologyOk {
+        in_reply_to: u64,
+        msg_id: u64,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -51,12 +78,14 @@ struct Message {
 struct State {
     next_message_id: u64,
     node_id: String,
+    messages: Vec<u64>,
 }
 
 fn main() -> Result<(), serde_json::Error> {
     let state = Arc::new(Mutex::new(State {
         next_message_id: 0u64,
         node_id: "".to_string(),
+        messages: vec![],
     }));
     loop {
         let mut input = String::new();
@@ -101,6 +130,31 @@ fn handle_message(
             msg_id: next_message_id,
             in_reply_to,
             id: nanoid!(),
+        },
+        MessageBody::Broadcast {
+            msg_id: in_reply_to,
+            message,
+        } => {
+            state.messages.push(message);
+
+            MessageBody::BroadcastOk {
+                msg_id: next_message_id,
+                in_reply_to,
+            }
+        }
+        MessageBody::Read {
+            msg_id: in_reply_to,
+        } => MessageBody::ReadOk {
+            msg_id: next_message_id,
+            in_reply_to,
+            messages: state.messages.clone(),
+        },
+        MessageBody::Topology {
+            msg_id: in_reply_to,
+            topology: _,
+        } => MessageBody::TopologyOk {
+            msg_id: next_message_id,
+            in_reply_to,
         },
         _ => {
             panic!("Unknown message type")

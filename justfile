@@ -6,3 +6,6 @@ uniq:
 
 uniq-release:
     ~/Downloads/maelstrom-0.2.3/maelstrom/maelstrom test -w unique-ids --bin ~/code/dist-sys-rust/target/release/dist-sys-rust --time-limit 30 --rate 1000 --node-count 3 --availability total --nemesis partition
+
+broadcast:
+    ~/Downloads/maelstrom-0.2.3/maelstrom/maelstrom test -w broadcast --bin ~/code/dist-sys-rust/target/release/dist-sys-rust --node-count 1 --time-limit 20 --rate 10
