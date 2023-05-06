@@ -2,27 +2,29 @@ use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "snake_case")]
 enum MessageBody {
-    #[serde(rename = "init")]
     Init {
         msg_id: u64,
         node_id: String,
         node_ids: Vec<String>,
     },
-    #[serde(rename = "init_ok")]
-    InitOk { msg_id: u64, in_reply_to: u64 },
-    #[serde(rename = "echo")]
-    Echo { msg_id: u64, echo: String },
-    #[serde(rename = "echo_ok")]
+    InitOk {
+        msg_id: u64,
+        in_reply_to: u64,
+    },
+    Echo {
+        msg_id: u64,
+        echo: String,
+    },
     EchoOk {
         in_reply_to: u64,
         msg_id: u64,
         echo: String,
     },
-    #[serde(rename = "generate")]
-    Generate { msg_id: u64 },
-    #[serde(rename = "generate_ok")]
+    Generate {
+        msg_id: u64,
+    },
     GenerateOk {
         in_reply_to: u64,
         msg_id: u64,
