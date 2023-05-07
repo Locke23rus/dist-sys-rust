@@ -9,3 +9,6 @@ uniq-release:
 
 broadcast:
     ~/Downloads/maelstrom-0.2.3/maelstrom/maelstrom test -w broadcast --bin ~/code/dist-sys-rust/target/release/dist-sys-rust --node-count 1 --time-limit 20 --rate 10
+
+broadcast-multi:
+    ~/Downloads/maelstrom-0.2.3/maelstrom/maelstrom test -w broadcast --bin ~/code/dist-sys-rust/target/release/dist-sys-rust --node-count 5 --time-limit 20 --rate 10

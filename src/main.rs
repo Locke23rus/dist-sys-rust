@@ -78,6 +78,8 @@ struct Message {
 struct State {
     next_message_id: u64,
     node_id: String,
+    node_ids: Vec<String>,
+    neighbors: Vec<String>,
     messages: Vec<u64>,
 }
 
@@ -85,6 +87,8 @@ fn main() -> Result<(), serde_json::Error> {
     let state = Arc::new(Mutex::new(State {
         next_message_id: 0u64,
         node_id: "".to_string(),
+        node_ids: vec![],
+        neighbors: vec![],
         messages: vec![],
     }));
     loop {
@@ -101,18 +105,19 @@ fn handle_message(
     request_message: Message,
 ) -> Result<(), serde_json::Error> {
     let mut state = state.lock().unwrap();
-    let next_message_id = state.next_message_id;
+    let mut next_message_id = state.next_message_id;
 
     let response_body: MessageBody = match request_message.body {
         MessageBody::Init {
             msg_id: in_reply_to,
             node_id,
-            node_ids: _,
+            node_ids,
         } => {
             state.node_id = node_id;
+            state.node_ids = node_ids;
 
             MessageBody::InitOk {
-                msg_id: next_message_id,
+                msg_id: state.next_message_id,
                 in_reply_to,
             }
         }
@@ -131,12 +136,36 @@ fn handle_message(
             in_reply_to,
             id: nanoid!(),
         },
+        MessageBody::Topology {
+            msg_id: in_reply_to,
+            topology,
+        } => {
+            state.neighbors = topology.get(&state.node_id).unwrap().clone();
+            MessageBody::TopologyOk {
+                msg_id: next_message_id,
+                in_reply_to,
+            }
+        }
         MessageBody::Broadcast {
             msg_id: in_reply_to,
             message,
         } => {
-            state.messages.push(message);
+            if !state.messages.contains(&message) {
+                state.messages.push(message);
 
+                state.neighbors.iter().for_each(|node_id| {
+                    let message = Message {
+                        body: MessageBody::Broadcast {
+                            msg_id: next_message_id,
+                            message,
+                        },
+                        src: state.node_id.clone(),
+                        dest: node_id.clone(),
+                    };
+                    println!("{}", serde_json::to_string(&message).unwrap());
+                    next_message_id += 1;
+                });
+            }
             MessageBody::BroadcastOk {
                 msg_id: next_message_id,
                 in_reply_to,
@@ -149,15 +178,14 @@ fn handle_message(
             in_reply_to,
             messages: state.messages.clone(),
         },
-        MessageBody::Topology {
-            msg_id: in_reply_to,
-            topology: _,
-        } => MessageBody::TopologyOk {
-            msg_id: next_message_id,
-            in_reply_to,
-        },
-        _ => {
-            panic!("Unknown message type")
+        MessageBody::BroadcastOk {
+            msg_id: _,
+            in_reply_to: _,
+        } => {
+            return Ok(());
+        }
+        unknown_type => {
+            panic!("Unknown message type {:?}", unknown_type);
         }
     };
 
