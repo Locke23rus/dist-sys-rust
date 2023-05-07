@@ -117,7 +117,7 @@ fn handle_message(
             state.node_ids = node_ids;
 
             MessageBody::InitOk {
-                msg_id: state.next_message_id,
+                msg_id: next_message_id,
                 in_reply_to,
             }
         }
@@ -196,7 +196,7 @@ fn handle_message(
     };
     println!("{}", serde_json::to_string(&response_message)?);
 
-    state.next_message_id += 1;
+    state.next_message_id = next_message_id + 1;
 
     Ok(())
 }
